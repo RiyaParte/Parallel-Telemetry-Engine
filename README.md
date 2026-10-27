@@ -76,6 +76,16 @@ print(f"Wrote {count} records")
 
 `iter_records` yields one record at a time, so creating a large workload does not require keeping the whole dataset in memory. Use `invalid_rate=0` for all-valid data or `invalid_rate=1` for all-invalid data. The default is 1% invalid records. A fixed seed produces the same records on repeated runs.
 
+## Generation Benchmark
+
+Run the sequential generation baseline after installing the package:
+
+```bash
+python benchmarks/benchmark_generation.py --sizes 10000 100000 1000000 --repeats 3
+```
+
+The CSV output reports median elapsed time and records per second for each dataset size. To include JSONL serialization cost without measuring filesystem speed, use `--workload jsonl`. Set `--seed` to keep the generated workload reproducible. These numbers establish a generator baseline; processing and parallel speedup benchmarks will follow once those pipeline stages are implemented.
+
 Install the development extra to run the unit tests with pytest:
 
 ```bash
