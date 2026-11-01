@@ -1,0 +1,31 @@
+# Python bytecode and test/lint caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+
+# Generated telemetry data and local benchmark results
+telemetry.jsonl
+*.parquet
+benchmark-results/
+
+# Editor and operating system files
+.DS_Store
+.idea/
+.vscode/

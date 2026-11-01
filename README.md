@@ -29,7 +29,7 @@ The project starts with a sequential processing pipeline and progressively intro
 
 ## Development Roadmap
 
-- [ ] Build a synthetic telemetry data generator.
+- [x] Build a synthetic telemetry data generator.
 - [ ] Implement the sequential processing pipeline.
 - [ ] Establish performance baselines across dataset sizes.
 - [ ] Implement multiprocessing-based parallel processing.
@@ -53,7 +53,45 @@ Benchmark results will be documented as implementations and experiments are comp
 
 ## Project Status
 
-**In development.** The initial milestone focuses on synthetic telemetry generation and a sequential processing baseline.
+**In development.** The first milestone provides a deterministic, streaming synthetic telemetry generator. The sequential processing baseline is next.
+
+## Getting Started
+
+The project currently uses only the Python standard library. From the repository root, install it in editable mode:
+
+```bash
+python -m pip install -e .
+```
+
+Generate records from Python and optionally write them as JSON Lines:
+
+```python
+from telemetry_engine import iter_records
+from telemetry_engine.generate import write_jsonl
+
+with open("telemetry.jsonl", "w", encoding="utf-8") as output:
+    count = write_jsonl(iter_records(100_000, seed=42), output)
+print(f"Wrote {count} records")
+```
+
+`iter_records` yields one record at a time, so creating a large workload does not require keeping the whole dataset in memory. Use `invalid_rate=0` for all-valid data or `invalid_rate=1` for all-invalid data. The default is 1% invalid records. A fixed seed produces the same records on repeated runs.
+
+## Generation Benchmark
+
+Run the sequential generation baseline after installing the package:
+
+```bash
+python benchmarks/benchmark_generation.py --sizes 10000 100000 1000000 --repeats 3
+```
+
+The CSV output reports median elapsed time and records per second for each dataset size. To include JSONL serialization cost without measuring filesystem speed, use `--workload jsonl`. Set `--seed` to keep the generated workload reproducible. These numbers establish a generator baseline; processing and parallel speedup benchmarks will follow once those pipeline stages are implemented.
+
+Install the development extra to run the unit tests with pytest:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+```
 
 ## Learning Goals
 
