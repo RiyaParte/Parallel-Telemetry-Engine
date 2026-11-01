@@ -1,0 +1,4 @@
+mode,records,valid_records,invalid_records,anomaly_records,repeats,median_seconds,records_per_second,seed,python_version,platform
+sequential,10000,9891,109,1186,3,0.005364,1864236.94,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O
+sequential,100000,98977,1023,12359,3,0.053384,1873213.11,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O
+sequential,1000000,989792,10208,123753,3,0.536847,1862726.96,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O
