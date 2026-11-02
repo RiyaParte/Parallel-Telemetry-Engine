@@ -10,7 +10,7 @@ import statistics
 import sys
 from time import perf_counter
 
-from telemetry_engine import ProcessingSummary, TelemetryRecord, iter_records, process_records
+from telemetry_engine import ProcessingSummary, TelemetryRecord, iter_timeseries, process_records
 
 
 def positive_int(value: str) -> int:
@@ -66,7 +66,7 @@ def main() -> None:
         writer.writerow(columns)
         for size in args.sizes:
             # Generate once before timing, so this benchmark measures processing only.
-            records = list(iter_records(size, seed=args.seed))
+            records = list(iter_timeseries(size, seed=args.seed))
             median_seconds, summary = measure(records, args.repeats)
             throughput = size / median_seconds if median_seconds else 0.0
             writer.writerow((

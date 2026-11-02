@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from telemetry_engine import TelemetryRecord, iter_records, process_records
+from telemetry_engine import TelemetryRecord, iter_timeseries, process_records
 
 
 class ProcessRecordsTests(unittest.TestCase):
@@ -61,13 +61,18 @@ class ProcessRecordsTests(unittest.TestCase):
         self.assertEqual(summary.metrics, {})
 
     def test_consumes_iterable_once_and_accepts_generated_data(self):
-        summary = process_records(iter_records(100, seed=42))
+        summary = process_records(iter_timeseries(100, seed=42))
 
         self.assertEqual(summary.records_seen, 100)
         self.assertEqual(summary.valid_records + summary.invalid_records, 100)
         self.assertGreater(summary.valid_records, 0)
         self.assertEqual(summary.anomaly_records,
                          sum(metric.anomalies for metric in summary.metrics.values()))
+
+    def test_generated_series_include_threshold_anomalies(self):
+        summary = process_records(iter_timeseries(500, seed=42, host_count=1,
+                                                  invalid_rate=0))
+        self.assertGreater(summary.anomaly_records, 0)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import sys
 import time
 from collections.abc import Callable
 
-from telemetry_engine import iter_records
+from telemetry_engine import iter_timeseries
 
 
 class CountingTextWriter:
@@ -26,7 +26,7 @@ class CountingTextWriter:
 def benchmark_generation(count: int, seed: int) -> int:
     """Consume generated records and return the record count."""
     records = 0
-    for _ in iter_records(count, seed=seed):
+    for _ in iter_timeseries(count, seed=seed):
         records += 1
     return records
 
@@ -35,7 +35,7 @@ def benchmark_jsonl(count: int, seed: int) -> int:
     """Generate and serialize records into a memory-free counting sink."""
     sink = CountingTextWriter()
     records = 0
-    for record in iter_records(count, seed=seed):
+    for record in iter_timeseries(count, seed=seed):
         sink.write(record.to_json())
         sink.write("\n")
         records += 1
@@ -99,10 +99,12 @@ def main() -> None:
     rows = []
     for count in args.sizes:
         median_seconds, throughput = measure(count, args.repeats, args.seed, workload)
-        rows.append((args.workload, count, args.repeats, f"{median_seconds:.6f}", f"{throughput:.2f}"))
+        rows.append((args.workload, count, args.repeats, f"{median_seconds:.6f}",
+                     f"{throughput:.2f}", args.seed))
 
     writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(("workload", "records", "repeats", "median_seconds", "records_per_second"))
+    writer.writerow(("workload", "records", "repeats", "median_seconds",
+                     "records_per_second", "seed"))
     writer.writerows(rows)
 
 

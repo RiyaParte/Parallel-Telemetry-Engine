@@ -54,7 +54,7 @@ Benchmark results will be documented as implementations and experiments are comp
 
 ## Project Status
 
-**In development.** The project has a deterministic telemetry generator, a sequential validation and aggregation pipeline, and initial generation and processing baselines. Multiprocessing comparison is next.
+**In development.** The project has a deterministic, regular time-series generator, a sequential validation and aggregation pipeline, and initial generation and processing baselines. Multiprocessing comparison is next.
 
 ## Getting Started
 
@@ -64,18 +64,18 @@ The project currently uses only the Python standard library. From the repository
 python3 -m pip install -e .
 ```
 
-Generate records from Python and optionally write them as JSON Lines:
+Generate regular time-series samples from Python and optionally write them as JSON Lines:
 
 ```python
-from telemetry_engine import iter_records
+from telemetry_engine import iter_timeseries
 from telemetry_engine.generate import write_jsonl
 
 with open("telemetry.jsonl", "w", encoding="utf-8") as output:
-    count = write_jsonl(iter_records(100_000, seed=42), output)
+    count = write_jsonl(iter_timeseries(100_000, seed=42), output)
 print(f"Wrote {count} records")
 ```
 
-`iter_records` yields one record at a time, so creating a large workload does not require keeping the whole dataset in memory. Use `invalid_rate=0` for all-valid data or `invalid_rate=1` for all-invalid data. The default is 1% invalid records. A fixed seed produces the same records on repeated runs.
+`iter_timeseries` yields one record at a time, so creating a large workload does not require keeping the whole dataset in memory. It emits samples in regular timestamp rounds across 10 hosts and four metrics; each host/metric series is sampled once per second by default. Values follow smooth, metric-specific patterns with noise and deterministic spikes in about 1% of samples. Use `invalid_rate=0` for all-valid data or `invalid_rate=1` for all-invalid data. The default is 1% invalid records. A fixed seed produces the same records on repeated runs. `iter_records` remains available for simple independent-record examples and tests; benchmarks use `iter_timeseries`.
 
 ## Sequential Pipeline
 
@@ -86,10 +86,10 @@ print(f"Wrote {count} records")
 Run the generation baseline after installing the package:
 
 ```bash
-python3 benchmarks/benchmark_generation.py --sizes 10000 100000 1000000 --repeats 3
+python3 benchmarks/benchmark_generation.py --sizes 10000 100000 1000000 --repeats 3 --seed 42 > benchmarks/results/generation_baseline.csv
 ```
 
-The CSV output reports median elapsed time and records per second for each dataset size. To include JSONL serialization cost without measuring filesystem speed, use `--workload jsonl`. Set `--seed` to keep the generated workload reproducible. The benchmark consumes records without saving a data file.
+The CSV output reports median elapsed time and records per second for each dataset size. To include JSONL serialization cost without measuring filesystem speed, use `--workload jsonl`. Set `--seed` to keep the generated workload reproducible. The benchmark uses regular time series and consumes records without saving a data file.
 
 ### Initial generation baseline
 
@@ -97,11 +97,11 @@ Measured with Python 3.13.0 on macOS 14.6.1 (Apple Silicon), using seed 42, thre
 
 | Records | Median time | Throughput |
 | ---: | ---: | ---: |
-| 10,000 | 0.014964 s | 668,284 records/s |
-| 100,000 | 0.147556 s | 677,707 records/s |
-| 1,000,000 | 1.468282 s | 681,068 records/s |
+| 10,000 | 0.015689 s | 637,374 records/s |
+| 100,000 | 0.155620 s | 642,592 records/s |
+| 1,000,000 | 1.546604 s | 646,578 records/s |
 
-These results are a local reference point, not a comparison against another implementation. Re-run the command on the same machine when measuring changes.
+These results use regular series across 10 hosts and four metrics at 1-second intervals, with seed 42 and three trials. The raw generator timings are in [generation_baseline.csv](benchmarks/results/generation_baseline.csv). They are a local reference point, not a comparison against another implementation. Re-run the command on the same machine when measuring changes.
 
 ### Sequential processing baseline
 
@@ -116,9 +116,9 @@ The raw CSV includes valid, invalid, and anomalous record counts, timing, throug
 
 | Records | Valid | Invalid | Anomalies | Median time | Throughput |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 10,000 | 9,891 | 109 | 1,186 | 0.005364 s | 1,864,237 records/s |
-| 100,000 | 98,977 | 1,023 | 12,359 | 0.053384 s | 1,873,213 records/s |
-| 1,000,000 | 989,792 | 10,208 | 123,753 | 0.536847 s | 1,862,727 records/s |
+| 10,000 | 9,908 | 92 | 73 | 0.005247 s | 1,906,017 records/s |
+| 100,000 | 99,028 | 972 | 733 | 0.052065 s | 1,920,688 records/s |
+| 1,000,000 | 990,174 | 9,826 | 8,217 | 0.536920 s | 1,862,476 records/s |
 
 ![Sequential processing time versus dataset size](benchmarks/results/sequential_processing_time.svg)
 
