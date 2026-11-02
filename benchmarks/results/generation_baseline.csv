@@ -1,0 +1,4 @@
+workload,records,repeats,median_seconds,records_per_second,seed
+generation,10000,3,0.015689,637374.02,42
+generation,100000,3,0.155620,642591.79,42
+generation,1000000,3,1.546604,646578.06,42
