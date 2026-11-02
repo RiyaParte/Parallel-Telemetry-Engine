@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections import deque
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
 import math
 
 from .generate import TelemetryRecord
@@ -40,6 +41,18 @@ class ProcessingSummary:
     metrics: dict[str, MetricSummary]
 
 
+@dataclass(frozen=True, slots=True)
+class RollingStatistics:
+    """Rolling features for one input record; invalid records have no values."""
+
+    record: TelemetryRecord
+    is_valid: bool
+    window_count: int
+    moving_average: float | None
+    moving_stddev: float | None
+    is_anomaly: bool
+
+
 @dataclass(slots=True)
 class _MetricAccumulator:
     count: int = 0
@@ -63,6 +76,28 @@ class _MetricAccumulator:
             average=self.total / self.count,
             anomalies=self.anomalies,
         )
+
+
+@dataclass(slots=True)
+class _RollingWindow:
+    values: deque[float] = field(default_factory=deque)
+    total: float = 0.0
+    sum_of_squares: float = 0.0
+    last_timestamp: float | None = None
+
+    def statistics(self) -> tuple[float, float]:
+        mean = self.total / len(self.values)
+        variance = max(0.0, self.sum_of_squares / len(self.values) - mean * mean)
+        return mean, math.sqrt(variance)
+
+    def add(self, value: float, window_size: int) -> None:
+        if len(self.values) == window_size:
+            oldest = self.values.popleft()
+            self.total -= oldest
+            self.sum_of_squares -= oldest * oldest
+        self.values.append(value)
+        self.total += value
+        self.sum_of_squares += value * value
 
 
 def _is_valid(record: TelemetryRecord) -> bool:
@@ -130,3 +165,61 @@ def process_records(records: Iterable[TelemetryRecord]) -> ProcessingSummary:
         anomaly_records=anomaly_records,
         metrics=metrics,
     )
+
+
+def iter_rolling_statistics(
+    records: Iterable[TelemetryRecord],
+    *,
+    window_size: int = 30,
+    min_history: int = 5,
+    sigma_threshold: float = 3.0,
+) -> Iterator[RollingStatistics]:
+    """Yield per-record rolling features grouped by host and metric.
+
+    Moving averages and population standard deviations use the current sample
+    and up to ``window_size - 1`` previous valid samples. Anomaly detection
+    compares the current value with the prior window, excluding that value.
+    It starts after ``min_history`` prior samples. Invalid records are yielded
+    with empty features and do not change a series window. Timestamps must be
+    non-decreasing within each host/metric series.
+    """
+    if window_size <= 0:
+        raise ValueError("window_size must be positive")
+    if min_history <= 0 or min_history > window_size:
+        raise ValueError("min_history must be between 1 and window_size")
+    if not math.isfinite(sigma_threshold) or sigma_threshold <= 0:
+        raise ValueError("sigma_threshold must be finite and positive")
+
+    windows: dict[tuple[str, str], _RollingWindow] = {}
+    for record in records:
+        if not _is_valid(record):
+            yield RollingStatistics(record, False, 0, None, None, False)
+            continue
+
+        key = (record.host_id, record.metric)
+        window = windows.get(key)
+        if window is None:
+            window = _RollingWindow()
+            windows[key] = window
+        if window.last_timestamp is not None and record.timestamp < window.last_timestamp:
+            raise ValueError(f"timestamps decreased for host/metric series {key}")
+
+        value = float(record.value)
+        is_anomaly = False
+        if len(window.values) >= min_history:
+            previous_mean, previous_stddev = window.statistics()
+            difference = abs(value - previous_mean)
+            is_anomaly = (difference > sigma_threshold * previous_stddev
+                          if previous_stddev > 0 else difference > 0)
+
+        window.add(value, window_size)
+        window.last_timestamp = record.timestamp
+        moving_average, moving_stddev = window.statistics()
+        yield RollingStatistics(
+            record=record,
+            is_valid=True,
+            window_count=len(window.values),
+            moving_average=moving_average,
+            moving_stddev=moving_stddev,
+            is_anomaly=is_anomaly,
+        )
