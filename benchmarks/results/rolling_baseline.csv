@@ -1,0 +1,4 @@
+mode,records,valid_records,invalid_records,anomaly_records,repeats,median_seconds,records_per_second,seed,python_version,platform,window_size,min_history,sigma_threshold
+sequential_rolling,10000,9908,92,182,3,0.016634,601172.31,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O,30,5,3.0
+sequential_rolling,100000,99028,972,1953,3,0.165236,605193.62,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O,30,5,3.0
+sequential_rolling,1000000,990174,9826,19055,3,1.635817,611315.26,42,3.13.0,macOS-14.6.1-arm64-arm-64bit-Mach-O,30,5,3.0

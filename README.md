@@ -30,7 +30,7 @@ The project starts with a sequential processing pipeline and progressively intro
 ## Development Roadmap
 
 - [x] Build a synthetic telemetry data generator and measure its throughput across dataset sizes.
-- [x] Implement the sequential processing pipeline.
+- [x] Implement sequential validation, aggregation, and rolling-window statistics.
 - [x] Establish the sequential processing baseline across dataset sizes.
 - [ ] Implement multiprocessing-based parallel processing.
 - [ ] Compare static and dynamic workload distribution.
@@ -54,7 +54,7 @@ Benchmark results will be documented as implementations and experiments are comp
 
 ## Project Status
 
-**In development.** The project has a deterministic, regular time-series generator, a sequential validation and aggregation pipeline, and initial generation and processing baselines. Multiprocessing comparison is next.
+**In development.** The project has a deterministic, regular time-series generator, a sequential validation and aggregation pipeline with rolling statistics, and initial generation and processing baselines. Multiprocessing comparison is next.
 
 ## Getting Started
 
@@ -80,6 +80,8 @@ print(f"Wrote {count} records")
 ## Sequential Pipeline
 
 `process_records(records)` consumes an iterable once. It counts and skips invalid records, then reports count, minimum, maximum, and average for each metric. It also counts threshold anomalies among valid records: CPU and memory above 90%, temperature above 80 C, and disk read speed above 450 MB/s. These simple thresholds are project defaults for learning and can be adjusted in `src/telemetry_engine/pipeline.py`.
+
+`iter_rolling_statistics(records, window_size=30)` yields rolling features for each record, keeping an independent window for every host/metric pair. It reports a moving average and population standard deviation; it flags a value when it is more than three prior-window standard deviations from the prior mean, after at least five prior samples. Invalid rows have no rolling values and do not update the window. Input timestamps must be non-decreasing within each series.
 
 ## Benchmarks
 
@@ -109,7 +111,8 @@ Run the sequential pipeline against the same seeded record sizes. The benchmark 
 
 ```bash
 python3 benchmarks/benchmark_sequential.py --sizes 10000 100000 1000000 --repeats 3 --seed 42 --output benchmarks/results/sequential_baseline.csv
-python3 benchmarks/plot_results.py benchmarks/results/sequential_baseline.csv --output benchmarks/results/sequential_processing_time.svg
+python3 benchmarks/benchmark_rolling.py --sizes 10000 100000 1000000 --repeats 3 --seed 42 --window-size 30 --min-history 5 --sigma-threshold 3 --output benchmarks/results/rolling_baseline.csv
+python3 benchmarks/plot_results.py benchmarks/results/sequential_baseline.csv benchmarks/results/rolling_baseline.csv --output benchmarks/results/sequential_processing_time.svg
 ```
 
 The raw CSV includes valid, invalid, and anomalous record counts, timing, throughput, and environment details. This local run used Python 3.13.0 on macOS 14.6.1 (Apple Silicon), with seed 42 and three measured trials:
@@ -120,7 +123,19 @@ The raw CSV includes valid, invalid, and anomalous record counts, timing, throug
 | 100,000 | 99,028 | 972 | 733 | 0.052065 s | 1,920,688 records/s |
 | 1,000,000 | 990,174 | 9,826 | 8,217 | 0.536920 s | 1,862,476 records/s |
 
-![Sequential processing time versus dataset size](benchmarks/results/sequential_processing_time.svg)
+### Rolling statistics baseline
+
+The rolling benchmark measures a 30-sample moving average and population standard deviation per host/metric series. A sample is compared with the prior window for anomalies after five history samples; the current sample is excluded from that comparison. Data generation remains outside the timed section.
+
+| Records | Anomalies | Median time | Throughput |
+| ---: | ---: | ---: | ---: |
+| 10,000 | 182 | 0.016634 s | 601,172 records/s |
+| 100,000 | 1,953 | 0.165236 s | 605,194 records/s |
+| 1,000,000 | 19,055 | 1.635817 s | 611,315 records/s |
+
+The raw measurements and window parameters are in [rolling_baseline.csv](benchmarks/results/rolling_baseline.csv). The chart compares the original sequential summary with the rolling workload:
+
+![Sequential processing time and rolling-statistics comparison](benchmarks/results/sequential_processing_time.svg)
 
 To compare a future implementation, pass its result CSV alongside this one to `plot_results.py`. The chart groups rows by the `mode` column, so use a distinct mode such as `multiprocessing` in future benchmark results. It plots median elapsed time against record count on a logarithmic x-axis. These measurements are hardware- and runtime-specific reference points.
 
